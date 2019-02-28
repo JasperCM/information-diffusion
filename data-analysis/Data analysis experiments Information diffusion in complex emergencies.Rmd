@@ -1,0 +1,730 @@
+---
+title: "Data analysis experiments - Information diffusion in complex emergencies"
+author: "Jasper Meijering"
+date: "26/02/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+This document accompanies the thesis "Information diffusion in complex emergencies". This files does not aim to be self containing. Instead it aims to give the reader an idea of which analysis have been performed during the research project. 
+
+This analysis follows 5 steps. These steps are:
+
+1) Data import and cleaning
+2) Analysis of core assumptions
+3) Analysis of individual strategies
+4) Analysis of comprehensive strategies
+5) Analayis for structural validation
+
+The remainder of this document discusses the steps one by one.
+
+### 1. Data import and cleaning
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#--- Libraries:
+options(stringsAsFactors = FALSE)
+library(ggplot2)
+library(reshape2)
+library(sqldf)
+library(magrittr)
+
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+#--- Load data:
+# Set wd to same folder as file.
+# Check whether Icloud files are stored localy. 
+
+Effects_shocks = read.table("Agent based model info diffusion v20181211 1351 Policy_experiment_effect_shocks-table 20181212 2109.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Effects_shocks)
+colnames(Effects_shocks) = gsub("X\\.", "", colnames(Effects_shocks))
+colnames(Effects_shocks) = gsub("^\\.|\\.$", "", colnames(Effects_shocks))
+colnames(Effects_shocks) = gsub("\\.", "_", colnames(Effects_shocks))
+
+
+Effects_moments_shocks = read.table("Agent based model info diffusion v20181213 1708 Policy_experiment_effect_moment_shock-table 20181214 1610.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Effects_shocks)
+colnames(Effects_shocks) = gsub("X\\.", "", colnames(Effects_shocks))
+colnames(Effects_shocks) = gsub("^\\.|\\.$", "", colnames(Effects_shocks))
+colnames(Effects_shocks) = gsub("\\.", "_", colnames(Effects_shocks))
+
+Effects_sharing = read.table("Agent based model info diffusion v20181215 2355 Policy_experiment_effect_social_and_IM_sharing-table 20181217 1245.csv", skip = 6, sep = ",", head=TRUE)
+
+Effects_sharing = read.table("Agent based model info diffusion v20181218 1210 Policy_experiment_effect_social_and_IM_sharing-table 20181221 1300.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Effects_sharing)
+colnames(Effects_sharing) = gsub("X\\.", "", colnames(Effects_sharing))
+colnames(Effects_sharing) = gsub("^\\.|\\.$", "", colnames(Effects_sharing))
+colnames(Effects_sharing) = gsub("\\.", "_", colnames(Effects_sharing))
+
+
+Ind_str_willigness_inter = read.table("Agent based model info diffusion v20181213 1708 Policy_experiment_willingness_inter-table 20181213 2108.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Ind_str_willigness_inter)
+colnames(Ind_str_willigness_inter) = gsub("X\\.", "", colnames(Ind_str_willigness_inter))
+colnames(Ind_str_willigness_inter) = gsub("^\\.|\\.$", "", colnames(Ind_str_willigness_inter))
+colnames(Ind_str_willigness_inter) = gsub("\\.", "_", colnames(Ind_str_willigness_inter))
+
+Ind_str_willigness_intra = read.table("Agent based model info diffusion v20181213 1708 Policy_experiment_willingness_intra-table 20181214 1330.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Ind_str_willigness_intra)
+colnames(Ind_str_willigness_intra) = gsub("X\\.", "", colnames(Ind_str_willigness_intra))
+colnames(Ind_str_willigness_intra) = gsub("^\\.|\\.$", "", colnames(Ind_str_willigness_intra))
+colnames(Ind_str_willigness_intra) = gsub("\\.", "_", colnames(Ind_str_willigness_intra))
+
+Ind_str_share_local_int = read.table("Agent based model info diffusion v20190211 0140 Policy_experiment_share_local_int-table 20190211 0140.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Ind_str_willigness_intra)
+colnames(Ind_str_share_local_int) = gsub("X\\.", "", colnames(Ind_str_share_local_int))
+colnames(Ind_str_share_local_int) = gsub("^\\.|\\.$", "", colnames(Ind_str_share_local_int))
+colnames(Ind_str_share_local_int) = gsub("\\.", "_", colnames(Ind_str_share_local_int))
+
+Ind_str_share_method = read.table("Agent based model info diffusion v20181211 1351 Policy_experiment_share_method-table 20181212 1432.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Ind_str_willigness_intra)
+colnames(Ind_str_share_method) = gsub("X\\.", "", colnames(Ind_str_share_method))
+colnames(Ind_str_share_method) = gsub("^\\.|\\.$", "", colnames(Ind_str_share_method))
+colnames(Ind_str_share_method) = gsub("\\.", "_", colnames(Ind_str_share_method))
+
+Ind_str_hand_over_knowledge= read.table("Agent based model info diffusion v20181211 1351 Policy_experiment_hand_over_know-table 20181212 2006.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Ind_str_willigness_intra)
+colnames(Ind_str_hand_over_knowledge) = gsub("X\\.", "", colnames(Ind_str_hand_over_knowledge))
+colnames(Ind_str_hand_over_knowledge) = gsub("^\\.|\\.$", "", colnames(Ind_str_hand_over_knowledge))
+colnames(Ind_str_hand_over_knowledge) = gsub("\\.", "_", colnames(Ind_str_hand_over_knowledge))
+
+Ind_str_hand_over_contacts= read.table("Agent based model info diffusion v20190211 0100 Policy_experiment_hand_over_contacts-table 20190211 0121.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Ind_str_willigness_intra)
+colnames(Ind_str_hand_over_contacts) = gsub("X\\.", "", colnames(Ind_str_hand_over_contacts))
+colnames(Ind_str_hand_over_contacts) = gsub("^\\.|\\.$", "", colnames(Ind_str_hand_over_contacts))
+colnames(Ind_str_hand_over_contacts) = gsub("\\.", "_", colnames(Ind_str_hand_over_contacts))
+
+Ind_str_hand_over_contacts_no_willing = read.table("Agent based model info diffusion v20181215 2355 Policy_experiment_effect_hand_over_no_willingness-table 20181217 1430.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Ind_str_hand_over_contacts_no_willing) 
+colnames(Ind_str_hand_over_contacts_no_willing ) = gsub("X\\.", "", colnames(Ind_str_hand_over_contacts_no_willing ))
+colnames(Ind_str_hand_over_contacts_no_willing ) = gsub("^\\.|\\.$", "", colnames(Ind_str_hand_over_contacts_no_willing))
+colnames(Ind_str_hand_over_contacts_no_willing ) = gsub("\\.", "_", colnames(Ind_str_hand_over_contacts_no_willing ))
+
+Ind_str_hand_over_knowledge_no_willing = read.table("Agent based model info diffusion v20181215 2355 Policy_experiment_effect_hand_over_knowledge_no_willingness-table 20181217 1517.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Ind_str_hand_over_knowledge_no_willing)
+colnames(Ind_str_hand_over_knowledge_no_willing ) = gsub("X\\.", "", colnames(Ind_str_hand_over_knowledge_no_willing ))
+colnames(Ind_str_hand_over_knowledge_no_willing ) = gsub("^\\.|\\.$", "", colnames(Ind_str_hand_over_knowledge_no_willing))
+colnames(Ind_str_hand_over_knowledge_no_willing ) = gsub("\\.", "_", colnames(Ind_str_hand_over_knowledge_no_willing ))
+
+sensitivity_will = read.table("Agent based model info diffusion v20181213 1708 Policy_experiment_willingness_inter_and_intra_sen_shocks_orgs-table 20181214 1645.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(sensitivity_will)
+colnames(sensitivity_will) = gsub("X\\.", "", colnames(sensitivity_will))
+colnames(sensitivity_will) = gsub("^\\.|\\.$", "", colnames(sensitivity_will))
+colnames(sensitivity_will) = gsub("\\.", "_", colnames(sensitivity_will))
+
+comperhansive_str = read.table("Agent based model info diffusion v20181218 1210 Policy_experiment_comperhensive2 20181220 1812-table.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(comperhansive_str)
+colnames(comperhansive_str) = gsub("X\\.", "", colnames(comperhansive_str))
+colnames(comperhansive_str) = gsub("^\\.|\\.$", "", colnames(comperhansive_str))
+colnames(comperhansive_str) = gsub("\\.", "_", colnames(comperhansive_str))
+
+effect_distributions_shocks_time = read.table("Agent based model info diffusion v20190124 1049 Policy_experiment_effect_distributions-table 20190124 1400.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(effect_distributions_shocks_time)
+colnames(effect_distributions_shocks_time) = gsub("X\\.", "", colnames(effect_distributions_shocks_time))
+colnames(effect_distributions_shocks_time) = gsub("^\\.|\\.$", "", colnames(effect_distributions_shocks_time))
+colnames(effect_distributions_shocks_time) = gsub("\\.", "_", colnames(effect_distributions_shocks_time))
+
+effect_distributions_shocks = read.table("Agent based model info diffusion v20190124 1712 Policy_experiment_effect_distributions_advanced-table 20190125 2052.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(effect_distributions_shocks)
+colnames(effect_distributions_shocks) = gsub("X\\.", "", colnames(effect_distributions_shocks))
+colnames(effect_distributions_shocks) = gsub("^\\.|\\.$", "", colnames(effect_distributions_shocks))
+colnames(effect_distributions_shocks) = gsub("\\.", "_", colnames(effect_distributions_shocks))
+
+effect_distributions_publication = read.table("Agent based model info diffusion v20190124 1049 Policy_experiment_effect_distributions_publication_method-table 20180124 1202.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(effect_distributions_publication)
+colnames(effect_distributions_publication) = gsub("X\\.", "", colnames(effect_distributions_publication))
+colnames(effect_distributions_publication) = gsub("^\\.|\\.$", "", colnames(effect_distributions_publication))
+colnames(effect_distributions_publication) = gsub("\\.", "_", colnames(effect_distributions_publication))
+
+Ind_str_publication_method_distribution = read.table("Agent based model info diffusion v20190124 1712 Policy_experiment_effect_distributions_publication_method-table 20190124 1745.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(Ind_str_publication_method_distribution)
+colnames(Ind_str_publication_method_distribution) = gsub("X\\.", "", colnames(Ind_str_publication_method_distribution))
+colnames(Ind_str_publication_method_distribution) = gsub("^\\.|\\.$", "", colnames(Ind_str_publication_method_distribution))
+colnames(Ind_str_publication_method_distribution) = gsub("\\.", "_", colnames(Ind_str_publication_method_distribution))
+
+sensitivity_assessment_length = read.table("Agent based model info diffusion v20190124 1712 Policy_experiment_sensitivity_assessment_length-table 20190209 1700.csv", skip = 6, sep = ",", head=TRUE)
+colnames = colnames(sensitivity_assessment_length)
+colnames(sensitivity_assessment_length) = gsub("X\\.", "", colnames(sensitivity_assessment_length))
+colnames(sensitivity_assessment_length) = gsub("^\\.|\\.$", "", colnames(sensitivity_assessment_length))
+colnames(sensitivity_assessment_length) = gsub("\\.", "_", colnames(sensitivity_assessment_length))
+
+min = 1.25
+max = 2.8
+
+```
+
+### 2. Analysis of core assumptions 
+#### Does the shocks assumption change the behaviour?
+
+Figure 1 shows information diffusion for 50 identical disasters. The only variable that was changed for these disasters was the time at which need chancing shocks took place. This figure show that the level of information diffusion is different for various timings of shocks. This behaviour illustrates how the information landschap is continous evolving based on amongst others the timing of shocks.
+
+Figure 2 shows that the number of days worked increase as the number of shocks increase.
+
+Figure 3 shows the effect of more shocks on the relief gap.
+
+Figure 4 shows the effect of the number of shocks on the diffusion of information. 
+
+Figure 5 also shows the effect of the number of shocks but then on the diffusion of information per programme manager per day.
+
+```{r echo=FALSE}
+wrapper <- function(x, ...) 
+{
+  paste(strwrap(x, ...), collapse = "\n")
+}
+
+boxplot_assumption_shocks_inf_diff = ggplot(data=Effects_moments_shocks, aes(x=X.step., y=total_information_diffused/days_worked, group=X.run.number.)) + facet_grid( Effects_moments_shocks$random.location.shocks. ~ Effects_moments_shocks$random.disaster. ) +
+  geom_line(aes(colour = X.run.number.)) + #we want to use points, colored by runNumber
+  labs(title = "The effect of shocks on the diffusion of information per person per day",
+      # subtitle = "The observed behaviour suggests that information sharing is not monotonous as timing of shocks matters",
+       #caption = wrapper(caption, width = 105), 
+       x = "days", y = "Information diffused per programme manager per day", group="shocks") + theme(plot.caption = element_text(hjust = 0)) + theme(axis.title.y.right = element_text("Random moments shocks")) +
+  theme(legend.position = "none")
+
+print(boxplot_assumption_shocks_inf_diff)
+ 
+
+
+boxplot_effects_shocks_inf_diff = ggplot(data=Effects_shocks, aes(x=shocks, y=total_information_diffused/days_worked, group=round(shocks/1))) + 
+  geom_boxplot() + labs(title = "The effect of the number of shocks on the diffusion of information",
+       subtitle = "Information diffusion increases as the number of shocks increases",
+       #caption = wrapper(caption, width = 105) , 
+       x = "Number of shocks", y = "Information diffused per programme manager per day", group="shocks") + theme(plot.caption = element_text(hjust = 0))
+
+print(boxplot_effects_shocks_inf_diff)
+
+boxplot_effects_shocks_gap = ggplot(data=Effects_shocks, aes(x=shocks, y=total_gap_over_time, group=round(shocks/1))) + geom_boxplot() + labs(title = "The effect of the number of shocks on the total relief gap",
+       #subtitle = "The total relief gaps are rather stable, they slighly increases as the number of shocks increaes.\nIn addition, total relief gaps are high for disasters with just 2 (bigger) shocks",
+        #caption = wrapper(caption, width = 105) , 
+       x = "Number of shocks", y = "Relief gap", group="shocks") + theme(plot.caption = element_text(hjust = 0)) 
+
+
+print(boxplot_effects_shocks_gap )
+
+
+boxplot_effects_shocks_days_worked  = ggplot(data=Effects_shocks, aes(x=shocks, y=days_worked, group=round(shocks))) + geom_boxplot() + labs(title = "The effect of the number of shocks on the total days worked",
+       #subtitle = "More shocks requires more work",
+       #caption = wrapper(caption, width = 105) , 
+       x = "Number of shocks", y = "Days worked", group="shocks") + theme(plot.caption = element_text(hjust = 0))
+
+print(boxplot_effects_shocks_days_worked)
+
+
+ggsave("plots/1_1shocks_assump_inf_diff.png",boxplot_assumption_shocks_inf_diff)
+ggsave("plots/1_2shocks_inf_diff.png",boxplot_effects_shocks_inf_diff)
+ggsave("plots/1_3shocks_inf_gap.png",boxplot_effects_shocks_gap)
+ggsave("plots/1_4shocks_inf_days.png",boxplot_effects_shocks_days_worked)
+
+
+#combo_plot =multiplot(boxplot_effects_shocks_days_worked,boxplot_effects_shocks_gap,boxplot_effects_shocks_inf_diff, cols = 3)
+
+#multiplot(boxplot_effects_shocks_days_worked,boxplot_effects_shocks_gap,boxplot_effects_shocks_inf_diff , cols=3, heights = 40,widths = 12) 
+
+```
+
+#### Does the social network assumption change the behaviour?
+
+
+```{r echo=FALSE}
+
+boxplot_Effects_sharing_inf_diff = ggplot(Effects_sharing, aes(x=social_sharing, y=total_information_diffused/days_worked)) + geom_boxplot() + facet_grid( ~ Effects_sharing$IM_sharing ) + labs(title = "The effect of different types of sharing on the diffusion of information",
+       x = "outer axis: IM sharing - inner axis: Social sharing ", y = "Information diffusion per programme manager per day")
+
+print(boxplot_Effects_sharing_inf_diff)
+
+
+boxplot_Effects_sharing_gap = ggplot(Effects_sharing, aes(x=social_sharing, y=total_gap_over_time)) + geom_boxplot() + facet_grid( ~ Effects_sharing$IM_sharing ) + labs(title = "The effect of different types of sharing on the total relief gap",
+       x = "outer axis: IM sharing - inner axis: Social sharing ", y = "Relief gap")
+
+print(boxplot_Effects_sharing_gap)
+
+
+boxplot_Effects_sharing_days = ggplot(Effects_sharing, aes(x=social_sharing, y=days_worked)) + geom_boxplot() + facet_grid(~ Effects_sharing$IM_sharing ) + labs(title = "The effect of different types of sharing on the total days worked",
+       x = "outer axis: IM sharing - inner axis: Social sharing ", y = "Days worked")
+
+print(boxplot_Effects_sharing_days)
+
+ggsave("plots/1_5sharing_assump_inf_diff.png",boxplot_Effects_sharing_inf_diff)
+ggsave("plots/1_5bboxplot_Effects_sharing_gap.png",boxplot_Effects_sharing_gap )
+ggsave("plots/1_5cboxplot_Effects_sharing_days.png",boxplot_Effects_sharing_days)
+
+```
+
+
+### 3. Analysis of individual strategies
+#### Willingness to share information inter-organisational
+
+As willigningess to share information inter-organisational, the total information diffused increases. The effect on the other parameters is less clear. Also not that a willingness of 100% is inpossible especially in complex disasters."
+
+```{r echo=FALSE}
+
+boxplot_Ind_str_willigness_inter_inf_diff = ggplot(Ind_str_willigness_inter, aes(x=willingness_to_share_inter_org, y=total_information_diffused/days_worked, group= round((willingness_to_share_inter_org/10)))) + 
+  geom_boxplot() +
+ labs(title = "Increasing willingness to share information inter-organisational",
+       x = "Willingness to share information inter-organisational", y = "Information diffusion per programme manager per day") +
+  ylim(min, max)
+
+print(boxplot_Ind_str_willigness_inter_inf_diff)
+
+#data2 = melt(myDataFrame, id=c("runNumber", "grass_is_on", "sheep_reproduce", "initial_number_sheep", "grass_regrowth_time", "sheep_gain_from_food", "show_energy", "initial_number_wolves", "wolf_reproduce", "wolf_gain_from_food", "tick"))
+
+boxplot_Ind_str_willigness_inter_gap = ggplot(Ind_str_willigness_inter, aes(x=willingness_to_share_inter_org, y= total_gap_over_time, group= round((willingness_to_share_inter_org/10)))) + 
+  geom_boxplot() + 
+ labs(title = "Willingness to share information inter-organisational on relief gap",
+       x = "Willingness to share information inter-organisational", y = "Relief gap")
+
+print(boxplot_Ind_str_willigness_inter_gap)
+
+
+boxplot_Ind_str_willigness_inter_days_worked = ggplot(Ind_str_willigness_inter, aes(x=willingness_to_share_inter_org, y=days_worked , group= round((willingness_to_share_inter_org/10)))) + 
+  geom_boxplot()  + 
+ labs(title = "Willingness to share information inter-organisational on days worked",
+       x = "Willingness to share information inter-organisational", y = "Days worked")
+
+print(boxplot_Ind_str_willigness_inter_days_worked)
+
+ggsave("plots/2_01Ind_str_willigness_inter_inf_diff.png",boxplot_Ind_str_willigness_inter_inf_diff)
+ggsave("plots/2_02Ind_str_willigness_inter_gap.png",boxplot_Ind_str_willigness_inter_gap)
+ggsave("plots/2_03Ind_str_willigness_inter_days_worked.png",boxplot_Ind_str_willigness_inter_days_worked)
+
+```
+\newpage
+\pagebreak
+
+#### Willingness to share information intra-organisational
+
+As willigningess to share information intra-organisational, the total information diffused increases but less as is the case for inter-organisational information sharing. The effect on the other parameters is less clear.
+
+```{r echo=FALSE}
+boxplot_Ind_str_willigness_intra_inf_diff = ggplot(Ind_str_willigness_intra, aes(x=willingness_to_share_intra_org, y=total_information_diffused/days_worked, group= round((willingness_to_share_intra_org/10)))) + 
+  geom_boxplot() +
+ labs(title = "Increasing willingness to share information intra-organisational",
+       x = "Willingness to share information intra-organisational", y = "Information diffusion per programme manager per day") +
+  ylim(min, max)
+
+print(boxplot_Ind_str_willigness_intra_inf_diff)
+
+boxplot_Ind_str_willigness_intra_gap = ggplot(Ind_str_willigness_intra, aes(x=willingness_to_share_intra_org, y=total_gap_over_time, group= round((willingness_to_share_intra_org/10)))) + 
+  geom_boxplot() + 
+ labs(title = "Willingness to share information intra-organisational on relief gap",
+       x = "Willingness to share information intra-organisational", y = "Relief gap")
+
+print(boxplot_Ind_str_willigness_intra_gap)
+
+boxplot_Ind_str_willigness_intra_days_worked = ggplot(Ind_str_willigness_intra, aes(x=willingness_to_share_intra_org, y=days_worked, group= round((willingness_to_share_intra_org/10)))) + 
+  geom_boxplot() + labs(title = "Willingness to share information intra-organisational on days worked",
+       x = "Willingness to share information intra-organisational", y = "Days worked")
+
+print(boxplot_Ind_str_willigness_intra_days_worked)
+
+# Comparion
+
+boxplot_Ind_str_willigness_intra_inf_diff_compar = ggplot(Ind_str_willigness_intra, aes(x=willingness_to_share_intra_org, y=total_information_diffused/days_worked, group=round((willingness_to_share_intra_org/10))))  + 
+  geom_boxplot() +
+  ylim(0.25, 2.75)
+ 
+print(boxplot_Ind_str_willigness_intra_inf_diff_compar)
+
+
+
+## let op dit is inter voor comparison
+boxplot_Ind_str_willigness_inter_inf_diff_compar = ggplot(Ind_str_willigness_inter, aes(x=willingness_to_share_inter_org, y=total_information_diffused/days_worked, group= round((willingness_to_share_inter_org/10)))) + 
+  geom_boxplot() +
+ labs(title =  "Inter-organisational willingness",
+       x = "Inter-organisational willingness", y = "Information diffusion per programme manager per day") +
+  ylim(0.25, 2.75)
+
+
+combo_plot_willingness =multiplot(boxplot_Ind_str_willigness_inter_inf_diff_compar,boxplot_Ind_str_willigness_intra_inf_diff_compar, cols = 2 )
+
+
+ggsave("plots/2_04boxplot_Ind_str_willigness_intra_inf_diff.png",boxplot_Ind_str_willigness_intra_inf_diff)
+ggsave("plots/2_05boxplot_Ind_str_willigness_intra_gap.png",boxplot_Ind_str_willigness_intra_gap)
+ggsave("plots/2_06boxplot_Ind_str_willigness_intra_days_worked.png",boxplot_Ind_str_willigness_intra_days_worked)
+#ggsave("plots/2_07combo_plot_willingness.png",combo_plot_willingness) % CAN NOT BE SAVED. Save manualy
+
+boxplot_Ind_str_willigness_intra_days_worked
+```
+\newpage
+\pagebreak
+
+#### Sensitivty analysis willingness to share - Inter, intra and number of organisations. 
+
+If number of organisations increase inf increases.
+If number of organsaitons increases the effect of the increasing inter organisations willingness to share information increases. 
+Enforcess the conclusion that increasing inter-organisational willigness to share is more effective. 
+It would be nice if I couls also evaluate the effect of having 12 organisations but that is computationally too intensive. -> future research.
+
+Figures are not easy to interprete beceause of dubble effect. Effect of more organisations and effect of willingness to share. 
+
+
+```{r echo=FALSE}
+sensitivity_will_inter = sqldf("SELECT * FROM sensitivity_will WHERE willingness_to_share_intra_org = 40")
+#summary(sensitivity_will)
+boxplot_sensitivity_will_inter  = ggplot(sensitivity_will_inter, aes(x=willingness_to_share_inter_org, y= total_information_diffused/days_worked, group= round((willingness_to_share_inter_org)))) + geom_boxplot()  + facet_grid( ~ sensitivity_will_inter$number_of_organisations)  +
+ labs(title = "Inter-organisational willingness to share on information diffusion for 4 and 8 shocks",
+       x = "Willingness to share information inter-organisational", y = "Information diffusion per programme manager per day") +
+  ylim(0.25, 2.5)
+  
+print(boxplot_sensitivity_will_inter)  
+
+sensitivity_will_intra = sqldf("SELECT * FROM sensitivity_will WHERE willingness_to_share_inter_org = 40")
+#summary(sensitivity_will)
+boxplot_sensitivity_will_intra = ggplot(sensitivity_will_intra, aes(x=willingness_to_share_intra_org, y= total_information_diffused/days_worked, group= round((willingness_to_share_intra_org)))) + geom_boxplot()  + facet_grid( ~ sensitivity_will_intra$number_of_organisations)  +
+ labs(title = "Intra-organisational willingness to share on information diffusion for 4 and 8 shocks",
+       x = "Willingness to share information intra-organisational", y = "Information diffusion per programme manager per day") +
+  ylim(0.25, 2.5)
+  
+print(boxplot_sensitivity_will_intra) 
+
+ggsave("plots/2_08boxplot_sensitivity_will_inter.png",boxplot_sensitivity_will_inter)
+ggsave("plots/2_09boxplot_sensitivity_will_intra.png",boxplot_sensitivity_will_intra)
+
+```
+
+#### Share local - international
+
+As the number of local programme mangers increases, the total information diffused increases but less as is the case as for both forms of increasing willigness to share information.But note 80% local programme mangers is more realistic that willigness to share 80% of all information.  This increase could be due to the increase in days worked (that is shown in figure 2). The total gap decreases slightly as is shown in figure 3. The last 2 grapsh show the total information diffused and total gap corrected for to number of days worked. Not sure whether you are allowed to do this calculation (as the number was higher, and effects could also be indicrect?) Does this assume lineairty?
+
+
+```{r echo=FALSE}
+
+boxplot_Ind_str_share_local_int_inf_diff = ggplot(Ind_str_share_local_int, aes(x=share_international_local, y=total_information_diffused/days_worked, group= round((share_international_local/.10))))  + 
+  geom_boxplot() + theme(legend.position = "none") + 
+  geom_boxplot() +
+ labs(title = "Increasing share local programme managers",
+       x = "Share local programme managers", y = "Information diffusion per programme manager per day") +
+  ylim(min, max)
+
+print(boxplot_Ind_str_share_local_int_inf_diff)
+
+
+boxplot_Ind_str_share_local_int_gap = ggplot(Ind_str_share_local_int, aes(x=share_international_local, y=total_gap_over_time, group= round((share_international_local/.10))))  + 
+  geom_boxplot() + theme(legend.position = "none") +
+ labs(title = "Share local programme managers on relief gap",
+       x = "Share local programme managers", y = "Relief gap")
+
+print(boxplot_Ind_str_share_local_int_gap)
+
+boxplot_Ind_str_share_local_int_days_worked = ggplot(Ind_str_share_local_int, aes(x=share_international_local, y=days_worked, group= round((share_international_local/.10)))) + 
+  geom_boxplot() + theme(legend.position = "none") +
+ labs(title = "Share local programme managers on days worked",
+       x = "Share local programme managers", y = "Days worked")
+
+print(boxplot_Ind_str_share_local_int_days_worked)
+
+ggsave("plots/2_10boxplot_Ind_str_share_local_int_inf_diff.png",boxplot_Ind_str_share_local_int_inf_diff)
+ggsave("plots/2_11boxplot_Ind_str_share_local_int_gap.png",boxplot_Ind_str_share_local_int_gap)
+ggsave("plots/2_12boxplot_Ind_str_share_local_int_days_worked.png",boxplot_Ind_str_share_local_int_days_worked)
+
+# kleur met fill
+
+```
+
+#### Publication method
+
+Publication strategies that are focused on fast publication of inaccuracte information sharing lead to more information diffusion (figure 1) and smaller relief gaps (figure 2) with less effort (lower number of days worked). 
+
+Did expect the effect to be so strong (it is the most effective strategie).
+
+```{r echo=FALSE}
+boxplot_Ind_str_publication_method_inf_diff = ggplot(Ind_str_share_method, aes(x=RS_publication_method, y=total_information_diffused/days_worked, group= (RS_publication_method))) + 
+  geom_boxplot() +
+ labs(title = "Changing publication method",
+       x = "Publication method", y = "Information diffusion per programme manager per day") +
+  ylim(min, max)
+
+print(boxplot_Ind_str_publication_method_inf_diff)
+
+boxplot_Ind_str_publication_method_inf_diff2 = ggplot(Ind_str_share_method, aes(x=RS_publication_method, y=total_information_diffused, group= (RS_publication_method))) + 
+  geom_boxplot() +
+ labs(title = "Changing publication method",
+       x = "Publication method", y = "Information diffusion (absolute)") 
+
+print(boxplot_Ind_str_publication_method_inf_diff2)
+
+boxplot_Ind_str_publication_method_gap = ggplot(Ind_str_share_method, aes(x=RS_publication_method, y=total_gap_over_time, group= (RS_publication_method))) + 
+  geom_boxplot() +
+ labs(title = "Publication method on relief gap",
+       x = "Publication method", y = "Relief gap")
+
+print(boxplot_Ind_str_publication_method_gap)
+
+boxplot_Ind_str_publication_method_days_worked = ggplot(Ind_str_share_method, aes(x=RS_publication_method, y=days_worked, group= (RS_publication_method))) + 
+  geom_boxplot() +
+ labs(title = "Publication method on days worked",
+       x = "Publication method", y = "Days worked") 
+
+print(boxplot_Ind_str_publication_method_days_worked)
+
+ggsave("plots/2_13boxplot_Ind_str_publication_method_inf_diff.png",boxplot_Ind_str_publication_method_inf_diff)
+ggsave("plots/2_14boxplot_Ind_str_publication_method_gap.png",boxplot_Ind_str_publication_method_gap)
+ggsave("plots/2_15boxplot_Ind_str_publication_method_days_worked.png",boxplot_Ind_str_publication_method_days_worked)
+
+
+
+```
+
+#### Hand over knowledge
+
+Focusing on the strategie hand over knowledge has no signification effect on information diffusion, the total relief gap or the total days worked.
+
+```{r echo=FALSE}
+
+boxplot_Ind_str_hand_over_knowledge_inf_diff = ggplot(Ind_str_hand_over_knowledge, aes(x=hand_over_knowledge, y=total_information_diffused/days_worked, group= (hand_over_knowledge))) + 
+  geom_boxplot() +
+ labs(title = "Implementing structured hand-over of knowledge",
+       x = "Hand-over of knowledge", y = "Information diffusion per programme manager per day") +
+  ylim(min, max)
+
+print(boxplot_Ind_str_hand_over_knowledge_inf_diff)
+
+boxplot_Ind_str_hand_over_knowledge_gap = ggplot(Ind_str_hand_over_knowledge, aes(x=hand_over_knowledge, y=total_gap_over_time, group= (hand_over_knowledge))) + 
+  geom_boxplot() +
+ labs(title = "Hand-over knowledge on relief gap",
+       x = "Hand-over of knowledge", y = "Relief gap")
+
+print(boxplot_Ind_str_hand_over_knowledge_gap)
+
+boxplot_Ind_str_hand_over_knowledge_days_worked = ggplot(Ind_str_hand_over_knowledge, aes(x=hand_over_knowledge, y=days_worked, group= (hand_over_knowledge))) + 
+  geom_boxplot() +
+ labs(title = "Hand-over knowledge on days worked",
+       x = "Hand-over knowledge", y = "Days worked") 
+
+print(boxplot_Ind_str_hand_over_knowledge_days_worked)
+
+
+caption = "Horizontal is social sharing. Vertical is IM sharing. In the case of no sharing (top left), there is an (weak) indication that handing over knowledge has an effect on the total relief gap. " 
+
+
+# DELETE THIS?? NOT IN THESIS - not absolute
+boxplot_Ind_str_hand_over_knowledge_no_willing_gap = ggplot(Ind_str_hand_over_knowledge_no_willing , aes(x=hand_over_knowledge, y=total_gap_over_time/days_worked, group= (hand_over_knowledge))) + 
+  geom_boxplot() + facet_grid(Ind_str_hand_over_knowledge_no_willing$social_sharing ~ Ind_str_hand_over_knowledge_no_willing$IM_sharing) + geom_boxplot() + labs(title = "",
+       subtitle = "-",
+       caption = wrapper(caption, width = 105) , 
+       x = "Hand over knowledge", y = "Total relief gap per programme manager per day") + theme(plot.caption = element_text(hjust = 0))
+
+print(boxplot_Ind_str_hand_over_knowledge_no_willing_gap) 
+
+caption = "Horizontal is social sharing. Vertical is IM sharing. No effect on days worked." 
+
+boxplot_Ind_str_hand_over_knowledge_no_willing_days = ggplot(Ind_str_hand_over_knowledge_no_willing , aes(x=hand_over_knowledge, y=days_worked, group= (hand_over_knowledge))) + 
+  geom_boxplot() + facet_grid(Ind_str_hand_over_knowledge_no_willing$social_sharing ~ Ind_str_hand_over_knowledge_no_willing$IM_sharing) + geom_boxplot() + labs(title = "",
+       subtitle = "-",
+       caption = wrapper(caption, width = 105) , 
+       x = "Hand over knowledge", y = "Days worked") + theme(plot.caption = element_text(hjust = 0))
+
+print(boxplot_Ind_str_hand_over_knowledge_no_willing_days) 
+
+ggsave("plots/2_16boxplot_Ind_str_hand_over_knowledge_inf_diff.png",boxplot_Ind_str_hand_over_knowledge_inf_diff)
+ggsave("plots/2_17boxplot_Ind_str_hand_over_knowledge_gap.png",boxplot_Ind_str_hand_over_knowledge_gap)
+ggsave("plots/2_18boxplot_Ind_str_hand_over_knowledge_days_worked.png",boxplot_Ind_str_hand_over_knowledge_days_worked)
+
+#DELETE THIS?
+ggsave("plots/2_19boxplot_Ind_str_hand_over_knowledge_no_willing_gap.png",boxplot_Ind_str_hand_over_knowledge_no_willing_gap)
+ggsave("plots/2_20boxplot_Ind_str_hand_over_knowledge_no_willing_days.png",boxplot_Ind_str_hand_over_knowledge_no_willing_days)
+
+
+```
+
+#### Hand over contacts
+
+In contrast to focusing on handing over knowledge does the strategie hand over contacts slightly increase the information diffused and a small decrease of the relief gap and days worked. 
+
+
+```{r echo=FALSE}
+
+boxplot_Ind_str_hand_over_contacts_inf_diff = ggplot(Ind_str_hand_over_contacts, aes(x=hand_over_contacts, y=total_information_diffused/days_worked, group= (hand_over_contacts))) + 
+  geom_boxplot() +
+ labs(title = "Implementing structured hand-over of contacts",
+       x = "Hand-over of contacts", y = "Information diffusion per programme manager per day") +
+  ylim(min, max)
+
+print(boxplot_Ind_str_hand_over_contacts_inf_diff)
+
+boxplot_Ind_str_hand_over_contacts_gap = ggplot(Ind_str_hand_over_contacts, aes(x=hand_over_contacts, y=total_gap_over_time, group= (hand_over_contacts))) + 
+  geom_boxplot() +
+ labs(title = "Hand-over contacts on relief gap",
+       x = "Hand-over of contacts", y = "Relief gap")
+
+print(boxplot_Ind_str_hand_over_contacts_gap)
+
+boxplot_Ind_str_hand_over_contacts_days_worked = ggplot(Ind_str_hand_over_contacts, aes(x=hand_over_contacts, y=days_worked, group= (hand_over_contacts))) + 
+  geom_boxplot() +
+ labs(title = "Hand-over contacts on days worked",
+       x = "Hand-over of contacts", y = "Days worked") 
+
+print(boxplot_Ind_str_hand_over_contacts_days_worked)
+
+ggsave("plots/2_21boxplot_Ind_str_hand_over_contacts_inf_diff.png",boxplot_Ind_str_hand_over_contacts_inf_diff)
+ggsave("plots/2_22boxplot_Ind_str_hand_over_contacts_gap.png",boxplot_Ind_str_hand_over_contacts_gap)
+ggsave("plots/2_23boxplot_Ind_str_hand_over_contacts_days_worked.png",boxplot_Ind_str_hand_over_contacts_days_worked )
+
+
+
+```
+
+
+### 4. Analysis of comprehensive strategies
+
+No supprising behavriour: Information diffusion is highest with a time-focused, local-based, high inter-organisations information sharing strategy. 
+
+```{r}
+
+comperhansive_str = sqldf("SELECT * FROM comperhansive_str WHERE shocks = 12")
+
+boxplot_comperhansive_str = ggplot(comperhansive_str, aes(x=comperhansive_str$RS_publication_method, y= total_information_diffused/days_worked, group = (RS_publication_method), fill = (comperhansive_str$total_information_diffused/comperhansive_str$days_worked))) + geom_boxplot()  + facet_grid(comperhansive_str$Willingness_focus ~ comperhansive_str$share_international_local) + labs(title = "Effects of eight comprehensive strategies on the diffusion of information", subtitle = "                                                  Share local programme managers", x = "", y = "Information diffusion per programme manager per day" )
+
+print(boxplot_comperhansive_str)
+
+ggsave("plots/3_1boxplot_comperhansive_str.png",boxplot_comperhansive_str)
+
+
+
+
+```
+
+#### Comperhansive strategies on the relief gap and days worked KPI
+
+```{r}
+
+
+# Not in thesis
+boxplot_comperhansive_str_inf_diff_absolute = ggplot(comperhansive_str, aes(x=comperhansive_str$RS_publication_method, y= total_information_diffused, group= (RS_publication_method))) + geom_boxplot()  + facet_grid(comperhansive_str$Willingness_focus ~ comperhansive_str$share_international_local, ) + labs(title = "Effects of eight comprehensive strategies on the diffusion of information (absolute)", subtitle = "                                                  Share local programme managers",
+       x = "", y = "Information diffusion" )
+
+print(boxplot_comperhansive_str_inf_diff_absolute) 
+
+boxplot_comperhansive_str_gap = ggplot(comperhansive_str, aes(x=comperhansive_str$RS_publication_method, y= total_gap_over_time, group= (RS_publication_method))) + geom_boxplot()  + facet_grid(comperhansive_str$Willingness_focus ~ comperhansive_str$share_international_local, ) + labs(title = "Effects of eight comprehensive strategies on the relief gap", subtitle = "                                                  Share local programme managers",
+       x = "", y = "Relief gap" )
+
+print(boxplot_comperhansive_str_gap)
+
+boxplot_comperhansive_str_days = ggplot(comperhansive_str, aes(x=comperhansive_str$RS_publication_method, y= days_worked, group= (RS_publication_method))) + geom_boxplot()  + facet_grid(comperhansive_str$Willingness_focus ~ comperhansive_str$share_international_local, ) + labs(title = "Effects of eight comprehensive strategies on days worked", subtitle = "                                                  Share local programme managers",
+       x = "", y = "Days worked" )
+
+print(boxplot_comperhansive_str_days)
+
+ggsave("plots/3_2boxplot_comperhansive_str_gap.png",boxplot_comperhansive_str_gap)
+ggsave("plots/3_3boxplot_comperhansive_str_days.png",boxplot_comperhansive_str_days)
+```
+
+### 5. Analayis for structural validation
+#### Changing the accuracy assumption - Effect on KPIs for various numbers of shocks
+
+
+```{r}
+boxplot_effect_distributions_shocks_inf_diff = ggplot(data=effect_distributions_shocks, aes(x=shocks, y=total_information_diffused/days_worked, group = shocks)) + facet_grid( rows =   vars(effect_distributions_shocks$distribution_accuracy)) +   geom_boxplot() 
+
+print(boxplot_effect_distributions_shocks_inf_diff)
+
+ggsave("plots/4_2boxplot_effect_distributions_shocks_inf_diff.png",boxplot_effect_distributions_shocks_inf_diff,width = 28, height = 40, dpi = 120) 
+
+
+boxplot_effect_distributions_shocks_gap = ggplot(data=effect_distributions_shocks, aes(x=shocks, y=total_gap_over_time, group = shocks)) + facet_grid( rows = vars(effect_distributions_shocks$distribution_accuracy)) +   geom_boxplot() 
+
+print(boxplot_effect_distributions_shocks_gap)
+
+ggsave("plots/4_3boxplot_effect_distributions_shocks_gap.png",boxplot_effect_distributions_shocks_gap,width = 28, height = 40, dpi = 120) 
+
+boxplot_effect_distributions_shocks_days = ggplot(data=effect_distributions_shocks, aes(x=shocks, y= days_worked, group = shocks)) + facet_grid( rows = vars(effect_distributions_shocks$distribution_accuracy)) +   geom_boxplot() 
+
+print(boxplot_effect_distributions_shocks_days)
+
+ggsave("plots/4_4boxplot_effect_distributions_shocks_days .png",boxplot_effect_distributions_shocks_days ,width = 28, height = 40, dpi = 120) 
+
+```
+
+
+#### Changing the accuracy assumption - Effect on KPIs for accuracy focused and time focused publication methods
+
+```{r}
+
+boxplot_Ind_str_publication_method_distribution_inf_diff = ggplot(Ind_str_publication_method_distribution, aes(x=RS_publication_method, y=total_information_diffused/days_worked, group= (RS_publication_method))) + facet_grid( rows = vars(Ind_str_publication_method_distribution$distribution_accuracy)) +
+  geom_boxplot() +
+ labs(title = "Effect changing publication method on information diffusion for different accuracy distributions",
+       x = "Publication method", y = "Information diffusion per programme manager per day") 
+
+print(boxplot_Ind_str_publication_method_distribution_inf_diff)
+ggsave("plots/4_5boxplot_Ind_str_publication_method_distribution_inf_diff.png", boxplot_Ind_str_publication_method_distribution_inf_diff,width = 10, height = 12, dpi = 120) 
+
+
+boxplot_Ind_str_publication_method_distribution_gap = ggplot(Ind_str_publication_method_distribution, aes(x=RS_publication_method, y=total_gap_over_time, group= (RS_publication_method))) + facet_grid( rows = vars(Ind_str_publication_method_distribution$distribution_accuracy)) +
+  geom_boxplot() +
+ labs(title = "Effect changing publication method on relief gap for different accuracy distributions",
+       x = "Publication method", y = "Relief gap") 
+
+print(boxplot_Ind_str_publication_method_distribution_gap)
+ggsave("plots/4_6boxplot_Ind_str_publication_method_distribution_gap.png", boxplot_Ind_str_publication_method_distribution_gap ,width = 10, height = 12, dpi = 120) 
+
+
+boxplot_Ind_str_publication_method_distribution_days = ggplot(Ind_str_publication_method_distribution, aes(x=RS_publication_method, y=days_worked, group= (RS_publication_method))) + facet_grid( rows = vars(Ind_str_publication_method_distribution$distribution_accuracy)) +
+  geom_boxplot() +
+ labs(title = "Effect changing publication method on days worked for different accuracy distributions",
+       x = "Publication method", y = "Days worked") 
+
+print(boxplot_Ind_str_publication_method_distribution_days)
+ggsave("plots/4_7boxplot_Ind_str_publication_method_distribution_days.png", boxplot_Ind_str_publication_method_distribution_days ,width = 10, height = 12, dpi = 120) 
+
+```
+
+#### Sensitivity analysis on assessment length
+It is problematic that the number of assessments increases (but the accuracy stays the same -> benefit of increasing speed). 
+```{r}
+
+boxplot_sensitivity_assessment_length_inf_diff = ggplot(sensitivity_assessment_length, aes(x=assessment_length , y= total_information_diffused/days_worked, group= assessment_length)) + geom_boxplot() + labs(title = "Sensitivity analysis of the assessment length variable on information diffusion", x = "Assessment length", y = "Information diffusion per programme manager per day")
+
+print(boxplot_sensitivity_assessment_length_inf_diff)
+
+ggsave("plots/5_1boxplot_sensitivity_inf_diff.png",boxplot_sensitivity_assessment_length_inf_diff)
+
+
+boxplot_sensitivity_assessment_length_gap = ggplot(sensitivity_assessment_length, aes(x=assessment_length , y= total_gap_over_time, group= assessment_length)) + geom_boxplot() +  labs(title = "Sensitivity analysis of the assessment length variable on relief gap",
+       x = "Assessment length", y = "Relief gap")
+
+print(boxplot_sensitivity_assessment_length_gap)
+ggsave("plots/5_2boxplot_sensitivity_gap.png",boxplot_sensitivity_assessment_length_gap)
+
+boxplot_sensitivity_assessment_length_days = ggplot(sensitivity_assessment_length, aes(x=assessment_length , y= days_worked, group= assessment_length)) + geom_boxplot() +  labs(title = "Sensitivity analysis of the assessment length variable on days worked",
+       x = "Assessment length", y = "days worked")
+
+print(boxplot_sensitivity_assessment_length_days)
+ggsave("plots/5_3boxplot_sensitivity_days.png",boxplot_sensitivity_assessment_length_days)
+
+
+```
