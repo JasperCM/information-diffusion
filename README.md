@@ -6,6 +6,8 @@ In addition, more information can be found in the info tap of the agent based mo
 The thesis report can be found in the repository of the TU Delft: https://repository.tudelft.nl/islandora/object/uuid%3Aad1f8abf-1a04-4679-b0d3-bf9c564ff595
 The data relating to this project can be found in this Google drive folder: https://drive.google.com/open?id=1Ngu2Kw6eDsRcKCs13_UzG3iKGgH4qDoO
 
+This research project is conducted at TU Delft and 510, the data initiative of The Netherlands Red Cross. Check https://github.com/rodekruis for more 510 projects. 
+
 MIT License
 
 Copyright (c) 2019 Jasper Meijering
